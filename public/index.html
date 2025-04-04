@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>音声認識</title>
+</head>
+<body>
+  <div class="wrapper">
+    <header class="header">
+      <button id="start-recording">音声認識 start</button>
+      <button id="stop-recording" disabled>音声認識 stop</button>
+    </header>
+    <div id="result">
+      <h2>認識結果:</h2>
+      <p id="transcription"></p>
+    </div>
+  </div>
+
+  <script>
+    let mediaRecorder;
+    let audioChunks = [];
+
+    // 録音開始ボタンのイベントリスナー
+    document.getElementById('start-recording').addEventListener('click', async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', audioBlob);
+
+        // サーバーに音声データを送信
+        const response = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+        document.getElementById('transcription').textContent =
+          result.transcript || '認識結果がありません';
+      };
+
+      mediaRecorder.start();
+      document.getElementById('start-recording').disabled = true;
+      document.getElementById('stop-recording').disabled = false;
+    });
+
+    // 録音停止ボタンのイベントリスナー
+    document.getElementById('stop-recording').addEventListener('click', () => {
+      mediaRecorder.stop();
+      document.getElementById('start-recording').disabled = false;
+      document.getElementById('stop-recording').disabled = true;
+    });
+  </script>
+</body>
+</html>
